@@ -1,0 +1,16 @@
+test_ambiguous (__main__.Tests.test_ambiguous) ... ok
+test_cancel (__main__.Tests.test_cancel) ... ok
+test_injection (__main__.Tests.test_injection) ... ok
+test_invalid (__main__.Tests.test_invalid) ... ok
+test_ownership (__main__.Tests.test_ownership) ... ok
+test_payment (__main__.Tests.test_payment) ... ok
+test_reject (__main__.Tests.test_reject) ... ok
+test_scale (__main__.Tests.test_scale) ... ok
+test_status (__main__.Tests.test_status) ... ok
+test_timeout (__main__.Tests.test_timeout) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.547s
+
+OK
+Local synthetic workload: {'requests': 500, 'workers': 10, 'completed': 500, 'ms': 112.7}
