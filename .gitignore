@@ -2,6 +2,8 @@
 .venv/
 venv/
 .venv-ai/
+benchmark-results.csv
+execution-traces*.json
 
 
 # Python cache

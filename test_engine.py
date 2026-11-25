@@ -17,5 +17,5 @@ class Tests(unittest.TestCase):
     def test_ownership(self):self.assertEqual(self.req('track','ORD-6001')['outcome'],'DENIED')
     def test_payment(self):self.assertFalse(e.ship('ORD-4092'))
     def test_scale(self):
-        r=e.scale(500);self.assertEqual(r['completed'],500);self.assertEqual(r['workers'],10);self.assertEqual(e.scale(50)['workers'],1);print('Local synthetic workload:',r)
+        r=e.scale(500);self.assertEqual(r['completed'],500);self.assertEqual(r['workers'],10);self.assertEqual(r['reserved'],12);self.assertEqual(r['out_of_stock'],488);self.assertEqual(r['remaining'],0);self.assertEqual(r['oversold'],0);self.assertEqual(e.scale(50)['workers'],1);print('Isolated SQLite reservation workload:',r)
 if __name__=='__main__':unittest.main(verbosity=2)

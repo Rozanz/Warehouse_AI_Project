@@ -1,0 +1,25 @@
+services:
+  warehouse:
+    build: .
+    environment:
+      WAREHOUSE_AI: ${WAREHOUSE_AI:-0}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+      WAREHOUSE_DEMO_USER: ${WAREHOUSE_DEMO_USER:-team}
+      WAREHOUSE_DEMO_PASSWORD: ${WAREHOUSE_DEMO_PASSWORD:?set a demo password}
+      WAREHOUSE_PUBLIC_ORIGIN: ${WAREHOUSE_PUBLIC_ORIGIN:?set HTTPS URL}
+    ports:
+      - "127.0.0.1:${WAREHOUSE_BIND_PORT:-18080}:8000"
+    volumes:
+      - warehouse_data:/data
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.5
+    pids_limit: 128
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+volumes:
+  warehouse_data:

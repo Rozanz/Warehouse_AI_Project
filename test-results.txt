@@ -10,7 +10,21 @@ test_status (__main__.Tests.test_status) ... ok
 test_timeout (__main__.Tests.test_timeout) ... ok
 
 ----------------------------------------------------------------------
-Ran 10 tests in 0.547s
+Ran 10 tests in 0.513s
 
 OK
-Local synthetic workload: {'requests': 500, 'workers': 10, 'completed': 500, 'ms': 112.7}
+Isolated SQLite reservation workload: {'requests': 500, 'workers': 10, 'completed': 500, 'ms': 165.87, 'reserved': 12, 'out_of_stock': 488, 'remaining': 0, 'oversold': 0, 'p95_ms': 4.32}
+test_boolean_approval (__main__.ReleaseTests.test_boolean_approval) ... ok
+test_conditional_guard (__main__.ReleaseTests.test_conditional_guard) ... ok
+test_indirect_cancellation (__main__.ReleaseTests.test_indirect_cancellation) ... ok
+test_model_failure (__main__.ReleaseTests.test_model_failure) ... ok
+test_no_sensitive_downgrade (__main__.ReleaseTests.test_no_sensitive_downgrade) ... ok
+test_privacy_and_followup (__main__.ReleaseTests.test_privacy_and_followup) ... ok
+test_retrieval (__main__.ReleaseTests.test_retrieval) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.192s
+
+OK
+
+HTTP smoke test: health, shared login, unauthenticated state/reset denied, cross-origin denied, invalid approval denied, cancellation, shipment guard, approval passed.

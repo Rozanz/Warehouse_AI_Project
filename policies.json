@@ -1,0 +1,10 @@
+[
+ {"id":"P01","intent":"CANCEL","text":"Cancel or stop an order before shipment when a customer changes their mind or no longer needs an item. A support employee must approve cancellation. Paid orders may receive a simulated refund; shipped orders cannot be cancelled."},
+ {"id":"P02","intent":"REFUND","text":"Refunds and money-back requests require verified payment and human review. The prototype does not send money or write to a payment gateway."},
+ {"id":"P03","intent":"STATUS","text":"Order tracking and shipment status are read-only. Verify customer ownership before returning order status. Do not invent delivery dates."},
+ {"id":"P04","intent":"INVENTORY","text":"Stock availability and inventory quantities must come from the warehouse database. Do not promise an unreserved item."},
+ {"id":"P05","intent":"PAYMENT","text":"Verify payment status from business records. Failed, unpaid or unverified payments block shipment."},
+ {"id":"P06","intent":"EDIT","text":"Shipping address updates and other order modifications require human review. Never directly change an address from model output."},
+ {"id":"P07","intent":"REVIEW","text":"Conditional, conflicting or unclear requests require human review. No order changes may occur until the employee authorizes a supported action."},
+ {"id":"P08","intent":"WAREHOUSE","text":"Fulfillment requires a paid processing order with no unresolved support ticket. Block unpaid or cancelled orders and log the decision."}
+]
