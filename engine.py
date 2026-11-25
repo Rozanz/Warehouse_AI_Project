@@ -1,4 +1,4 @@
-import sqlite3, time, math, uuid, re, threading
+import sqlite3, time, math, uuid, re, threading, os
 from datetime import datetime, timezone
 from contextlib import contextmanager
 from pathlib import Path
@@ -32,6 +32,19 @@ def request(owner,order,message,timeout=False):
     if not data:return finish('DENIED','Order unavailable for this customer.')
     o=data[0]; m=message.lower(); intents=[x for x,pat in [('CANCEL','cancel'),('REFUND','refund'),('EDIT','edit|change|update'),('INVENTORY','stock|inventory|available'),('PAYMENT','payment|paid'),('STATUS','status|track|shipping|where')] if re.search(pat,m)]
     sensitive=[x for x in intents if x in ('CANCEL','REFUND','EDIT')]; intent='REVIEW' if len(sensitive)>1 or re.search(r'\b(if|otherwise)\b',m) else (sensitive or intents or ['REVIEW'])[0]
+    if os.getenv('WAREHOUSE_AI','0') == '1':
+        from orchestrator import analyze
+        result=analyze(message,o)
+        predicted=result['intent']
+        # Explicit sensitive or conditional requests cannot be downgraded by AI.
+        if result['model_status'] != 'ok' or intent=='REVIEW' and (len(sensitive)>1 or re.search(r'\b(if|otherwise)\b',m)):
+            intent='REVIEW'
+        elif sensitive and predicted!=intent:
+            intent='REVIEW'
+        else:
+            intent=predicted
+        log(t,'LLM classifier',f"{result['model_status']}; predicted={predicted}; tokens={result['tokens']}")
+        log(t,'LangGraph policy',result['policy'])
     log(t,'Triage Agent',intent); log(t,'Researcher Agent','SQLite order lookup; ownership verified'); log(t,'Policy Evaluator',f"payment={o['payment']}; status={o['status']}")
     def ticket(kind,reason,status='PENDING'):
         tid='T-'+uuid.uuid4().hex[:8]
