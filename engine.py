@@ -14,6 +14,9 @@ def conn():
 def init():
     with LOCK, conn() as c:
         c.executescript('''CREATE TABLE IF NOT EXISTS orders(id TEXT PRIMARY KEY, owner TEXT, item TEXT, amount REAL, payment TEXT, status TEXT, refund TEXT DEFAULT 'NONE'); CREATE TABLE IF NOT EXISTS tickets(id TEXT PRIMARY KEY, order_id TEXT, intent TEXT, status TEXT, reason TEXT, trace TEXT); CREATE TABLE IF NOT EXISTS logs(trace TEXT, timestamp TEXT, node TEXT, detail TEXT); CREATE TABLE IF NOT EXISTS metrics(trace TEXT, ms REAL, outcome TEXT); CREATE TABLE IF NOT EXISTS inventory(item TEXT PRIMARY KEY, stock INTEGER);''')
+        cols={r[1] for r in c.execute('PRAGMA table_info(tickets)')}
+        for name in ('customer_request','evidence','policy','classification'):
+            if name not in cols:c.execute('ALTER TABLE tickets ADD COLUMN '+name+" TEXT DEFAULT ''")
         c.executemany('INSERT OR IGNORE INTO orders(id,owner,item,amount,payment,status) VALUES(?,?,?,?,?,?)',[('ORD-99182','cust_402','Wireless Headphones',89.99,'PAID','PROCESSING'),('ORD-4092','cust_402','Keyboard',59.99,'FAILED','HOLD'),('ORD-5001','cust_402','Mouse',29.99,'PAID','SHIPPED'),('ORD-6001','cust_999','Monitor',199.99,'PAID','PROCESSING')]); c.executemany('INSERT OR IGNORE INTO inventory VALUES(?,?)',[('Wireless Headphones',12),('Keyboard',5),('Mouse',20),('Monitor',2)])
 def log(trace,node,detail):
     with LOCK,conn() as c:c.execute('INSERT INTO logs VALUES(?,?,?,?)',(trace,datetime.now(timezone.utc).isoformat(),node,detail))
@@ -32,6 +35,7 @@ def request(owner,order,message,timeout=False):
     if not data:return finish('DENIED','Order unavailable for this customer.')
     o=data[0]; m=message.lower(); intents=[x for x,pat in [('CANCEL','cancel'),('REFUND','refund'),('EDIT','edit|change|update'),('INVENTORY','stock|inventory|available'),('PAYMENT','payment|paid'),('STATUS','status|track|shipping|where')] if re.search(pat,m)]
     sensitive=[x for x in intents if x in ('CANCEL','REFUND','EDIT')]; intent='REVIEW' if len(sensitive)>1 or re.search(r'\b(if|otherwise)\b',m) else (sensitive or intents or ['REVIEW'])[0]
+    policy='Local business rules: sensitive actions require human approval.'; classification='Rule-based'
     if os.getenv('WAREHOUSE_AI','0') == '1':
         from orchestrator import analyze
         result=analyze(message,o)
@@ -44,11 +48,16 @@ def request(owner,order,message,timeout=False):
         else:
             intent=predicted
         log(t,'LLM classifier',f"{result['model_status']}; predicted={predicted}; tokens={result['tokens']}")
-        log(t,'LangGraph policy',result['policy'])
+        policy=result['policy']; classification=f"{result['model_status']}; predicted={predicted}; final={intent}"
+        log(t,'LangGraph policy',policy)
     log(t,'Triage Agent',intent); log(t,'Researcher Agent','SQLite order lookup; ownership verified'); log(t,'Policy Evaluator',f"payment={o['payment']}; status={o['status']}")
     def ticket(kind,reason,status='PENDING'):
         tid='T-'+uuid.uuid4().hex[:8]
-        with LOCK,conn() as c:c.execute('INSERT INTO tickets VALUES(?,?,?,?,?,?)',(tid,order,kind,status,reason,t))
+        # Store a bounded, redacted customer request, separate from audit logs.
+        safe=re.sub(r'[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}', '[email redacted]', message)
+        safe=re.sub(r'(?<!\d)(?:\+?\d[ .()-]?){7,19}(?!\d)', '[number redacted]', safe)
+        evidence=f"{o['item']} | ${o['amount']:.2f} | payment={o['payment']} | status={o['status']} | owner={o['owner']}"
+        with LOCK,conn() as c:c.execute('INSERT INTO tickets(id,order_id,intent,status,reason,trace,customer_request,evidence,policy,classification) VALUES(?,?,?,?,?,?,?,?,?,?)',(tid,order,kind,status,reason,t,safe,evidence,policy,classification))
         log(t,'HITL Gate',f'{tid} {status}'); return finish(status,reason,tid)
     if timeout:
         for i in range(1,4):log(t,'External adapter',f'Simulated timeout attempt {i}');time.sleep(.02)
@@ -70,6 +79,13 @@ def decide(tid,approve):
             else:status='MANUAL_FOLLOWUP' # no unsupported writes
         c.execute('UPDATE tickets SET status=? WHERE id=?',(status,tid));c.execute('INSERT INTO logs VALUES(?,?,?,?)',(t['trace'],datetime.now(timezone.utc).isoformat(),'Human decision',status))
     return status
+def close_followup(tid):
+    with LOCK,conn() as c:
+        c.execute('BEGIN IMMEDIATE'); t=c.execute('SELECT * FROM tickets WHERE id=?',(tid,)).fetchone()
+        if not t or t['status'] not in ('QUEUED','MANUAL_FOLLOWUP'):return 'Ticket not eligible for closure.'
+        c.execute("UPDATE tickets SET status='DISMISSED' WHERE id=?",(tid,))
+        c.execute('INSERT INTO logs VALUES(?,?,?,?)',(t['trace'],datetime.now(timezone.utc).isoformat(),'Human follow-up','DISMISSED; no order changes'))
+    return 'DISMISSED'
 def ship(order):
     with LOCK,conn() as c:
         cur=c.execute("UPDATE orders SET status='SHIPPED' WHERE id=? AND payment='PAID' AND status='PROCESSING' AND NOT EXISTS (SELECT 1 FROM tickets WHERE order_id=? AND status IN ('PENDING','MANUAL_FOLLOWUP','QUEUED'))",(order,order)); ok=bool(cur.rowcount)
